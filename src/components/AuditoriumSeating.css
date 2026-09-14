@@ -331,7 +331,7 @@ html, body {
     align-items: center;
     gap: 48px;
     width: 100%;
-    margin-bottom: 48px;
+    margin-bottom: 54px;
     position: relative;
     z-index: 60;
 }
@@ -344,16 +344,16 @@ html, body {
 }
 
 .section-title-badge {
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 1.5px;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 1.8px;
     text-transform: uppercase;
-    color: #64748b;
+    color: #475569;
     background: #f1f5f9;
-    padding: 5px 20px;
-    border-radius: 12px;
-    border: 1px solid #cbd5e1;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    padding: 7px 24px;
+    border-radius: 14px;
+    border: 1.5px solid #cbd5e1;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 /* AUDITORIUM SEATING GRID */
@@ -444,20 +444,20 @@ html, body {
     bottom: 100%;
     left: 50%;
     transform: translateX(-50%);
-    margin-bottom: 9px;
-    padding: 4px 14px;
-    border-radius: 16px;
-    font-size: 13px;
-    font-weight: 800;
+    margin-bottom: 10px;
+    padding: 7px 20px;
+    border-radius: 20px;
+    font-size: 16px;
+    font-weight: 900;
     white-space: nowrap;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28), 0 2px 4px rgba(0, 0, 0, 0.12);
-    border: 1.5px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32), 0 3px 6px rgba(0, 0, 0, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.6);
     z-index: 50;
     line-height: 1.2;
     display: flex;
     align-items: center;
     justify-content: center;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.4px;
 }
 
 .label-arrow-badge.movable {
@@ -478,9 +478,9 @@ html, body {
     transform: translateX(-50%);
     width: 0;
     height: 0;
-    border-left: 7px solid transparent;
-    border-right: 7px solid transparent;
-    border-top: 8px solid currentColor;
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    border-top: 10px solid currentColor;
 }
 
 /* =========================================================

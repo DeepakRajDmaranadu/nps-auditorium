@@ -57,7 +57,7 @@ function generateAuditoriumData(totalRows = 26) {
   return rows;
 }
 
-const Seat = ({ seat, isSelected, allocation, onMouseDown, onMouseEnter, onHover }) => {
+const Seat = ({ seat, isSelected, allocation, badgeLevel = 0, onMouseDown, onMouseEnter, onHover }) => {
   if (seat.type === 'hidden') {
     return <div className="seat hidden" />;
   }
@@ -74,6 +74,10 @@ const Seat = ({ seat, isSelected, allocation, onMouseDown, onMouseEnter, onHover
     ? `[${allocation.label}] Seat #${allocation.number} (Row ${seat.row}, ${seat.section} Section)`
     : `Seat (Row ${seat.row}, ${seat.section} Section)`;
 
+  const levelOffsets = [10, 46, 82, 118];
+  const marginBottom = levelOffsets[badgeLevel] || 10;
+  const stemHeight = marginBottom - 10;
+
   return (
     <div
       className={seatClasses}
@@ -89,17 +93,27 @@ const Seat = ({ seat, isSelected, allocation, onMouseDown, onMouseEnter, onHover
       }}
       onMouseLeave={() => onHover && onHover(null)}
     >
-      {/* Floating Group Callout Badge with Downward Arrow */}
+      {/* Floating Group Callout Badge with Downward Arrow & Stem Line */}
       {allocation && allocation.isGroupHeader && (
         <div
           className="label-arrow-badge"
           style={{
             backgroundColor: allocation.color,
             color: allocation.textColor || '#ffffff',
+            marginBottom: `${marginBottom}px`,
           }}
         >
           <span>{allocation.label}</span>
           <span className="arrow-down" style={{ borderTopColor: allocation.color }} />
+          {stemHeight > 0 && (
+            <span
+              className="badge-stem-line"
+              style={{
+                height: `${stemHeight}px`,
+                backgroundColor: allocation.color,
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -258,6 +272,44 @@ export default function AuditoriumSeating({ totalRows = 26 }) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleOpenPreviewModal]);
+
+  const groupBadgeLevels = useMemo(() => {
+    const headers = Object.keys(allocations)
+      .filter((key) => allocations[key] && allocations[key].isGroupHeader)
+      .map((key) => {
+        const alloc = allocations[key];
+        const [section, rowStr, colStr] = key.split('-');
+        return {
+          key,
+          groupId: alloc.groupId,
+          row: parseInt(rowStr, 10),
+          col: parseInt(colStr, 10),
+          section,
+        };
+      });
+
+    headers.sort((a, b) => a.row - b.row || a.col - b.col);
+
+    const levels = {};
+    headers.forEach((h) => {
+      const nearbyLevels = new Set();
+      headers.forEach((other) => {
+        if (other.groupId !== h.groupId && levels[other.groupId] !== undefined) {
+          if (other.section === h.section && Math.abs(other.row - h.row) <= 1 && Math.abs(other.col - h.col) <= 9) {
+            nearbyLevels.add(levels[other.groupId]);
+          }
+        }
+      });
+
+      let lvl = 0;
+      while (nearbyLevels.has(lvl)) {
+        lvl++;
+      }
+      levels[h.groupId] = lvl;
+    });
+
+    return levels;
+  }, [allocations]);
 
   const sectionSeatLists = useMemo(() => {
     const lists = { Left: [], Middle: [], Right: [] };
@@ -628,6 +680,7 @@ export default function AuditoriumSeating({ totalRows = 26 }) {
                       seat={seat}
                       isSelected={selectedKeys.has(seat.key)}
                       allocation={allocations[seat.key]}
+                      badgeLevel={allocations[seat.key] && allocations[seat.key].isGroupHeader ? (groupBadgeLevels[allocations[seat.key].groupId] || 0) : 0}
                       onMouseDown={handleSeatMouseDown}
                       onMouseEnter={handleSeatMouseEnter}
                       onHover={setHoveredSeat}
@@ -643,6 +696,7 @@ export default function AuditoriumSeating({ totalRows = 26 }) {
                       seat={seat}
                       isSelected={selectedKeys.has(seat.key)}
                       allocation={allocations[seat.key]}
+                      badgeLevel={allocations[seat.key] && allocations[seat.key].isGroupHeader ? (groupBadgeLevels[allocations[seat.key].groupId] || 0) : 0}
                       onMouseDown={handleSeatMouseDown}
                       onMouseEnter={handleSeatMouseEnter}
                       onHover={setHoveredSeat}
@@ -658,6 +712,7 @@ export default function AuditoriumSeating({ totalRows = 26 }) {
                       seat={seat}
                       isSelected={selectedKeys.has(seat.key)}
                       allocation={allocations[seat.key]}
+                      badgeLevel={allocations[seat.key] && allocations[seat.key].isGroupHeader ? (groupBadgeLevels[allocations[seat.key].groupId] || 0) : 0}
                       onMouseDown={handleSeatMouseDown}
                       onMouseEnter={handleSeatMouseEnter}
                       onHover={setHoveredSeat}

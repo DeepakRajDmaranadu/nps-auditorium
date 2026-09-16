@@ -331,7 +331,7 @@ html, body {
     align-items: center;
     gap: 48px;
     width: 100%;
-    margin-bottom: 54px;
+    margin-bottom: 68px;
     position: relative;
     z-index: 60;
 }
@@ -458,6 +458,7 @@ html, body {
     align-items: center;
     justify-content: center;
     letter-spacing: 0.4px;
+    transition: margin-bottom 0.15s ease;
 }
 
 .label-arrow-badge.movable {
@@ -481,6 +482,16 @@ html, body {
     border-left: 9px solid transparent;
     border-right: 9px solid transparent;
     border-top: 10px solid currentColor;
+}
+
+.badge-stem-line {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2.5px;
+    z-index: -1;
+    border-radius: 1px;
 }
 
 /* =========================================================

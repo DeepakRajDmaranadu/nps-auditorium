@@ -101,6 +101,7 @@ const Seat = ({ seat, isSelected, allocation, badgeLevel = 0, onMouseDown, onMou
             backgroundColor: allocation.color,
             color: allocation.textColor || '#ffffff',
             marginBottom: `${marginBottom}px`,
+            zIndex: 50 + badgeLevel,
           }}
         >
           <span>{allocation.label}</span>
@@ -670,7 +671,7 @@ export default function AuditoriumSeating({ totalRows = 26 }) {
           {/* Auditorium Grid */}
           <div className="auditorium">
             {seatingData.map((row) => (
-              <div key={row.rowNumber} className="row">
+              <div key={row.rowNumber} className="row" style={{ zIndex: 200 - row.rowNumber, position: 'relative' }}>
                 
                 {/* Left Section */}
                 <div className="section">

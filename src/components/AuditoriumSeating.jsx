@@ -5,6 +5,7 @@ import './AuditoriumSeating.css';
 
 const LOCAL_STORAGE_KEY = 'auditorium_seating_allocations_v2';
 const LOCAL_STORAGE_TITLE_KEY = 'auditorium_seating_title_v1';
+const LOCAL_STORAGE_OFFSETS_KEY = 'auditorium_seating_badge_offsets_v1';
 
 // Preset allocation labels with distinct indicator colors
 const PRESET_LABELS = [
@@ -57,7 +58,18 @@ function generateAuditoriumData(totalRows = 26) {
   return rows;
 }
 
-const Seat = ({ seat, isSelected, allocation, badgeLevel = 0, onMouseDown, onMouseEnter, onHover }) => {
+const Seat = ({
+  seat,
+  isSelected,
+  allocation,
+  badgeLevel = 0,
+  badgeOffset = { x: 0, y: 0 },
+  onMouseDown,
+  onMouseEnter,
+  onHover,
+  onBadgeDragStart,
+  onBadgeDoubleClick,
+}) => {
   if (seat.type === 'hidden') {
     return <div className="seat hidden" />;
   }
@@ -75,8 +87,10 @@ const Seat = ({ seat, isSelected, allocation, badgeLevel = 0, onMouseDown, onMou
     : `Seat (Row ${seat.row}, ${seat.section} Section)`;
 
   const levelOffsets = [10, 46, 82, 118];
-  const marginBottom = levelOffsets[badgeLevel] || 10;
-  const stemHeight = marginBottom - 10;
+  const baseMarginBottom = levelOffsets[badgeLevel] || 10;
+  const dx = badgeOffset?.x || 0;
+  const dy = badgeOffset?.y || 0;
+  const hasMoved = dx !== 0 || dy !== 0;
 
   return (
     <div
@@ -84,6 +98,7 @@ const Seat = ({ seat, isSelected, allocation, badgeLevel = 0, onMouseDown, onMou
       style={inlineStyle}
       title={titleText}
       onMouseDown={(e) => {
+        if (e.target.closest('.label-arrow-badge')) return;
         e.preventDefault();
         onMouseDown(seat, e);
       }}
@@ -93,29 +108,69 @@ const Seat = ({ seat, isSelected, allocation, badgeLevel = 0, onMouseDown, onMou
       }}
       onMouseLeave={() => onHover && onHover(null)}
     >
-      {/* Floating Group Callout Badge with Downward Arrow & Stem Line */}
+      {/* Floating Group Callout Badge with Downward Arrow & Dynamic STEM/SVG Connector */}
       {allocation && allocation.isGroupHeader && (
-        <div
-          className="label-arrow-badge"
-          style={{
-            backgroundColor: allocation.color,
-            color: allocation.textColor || '#ffffff',
-            marginBottom: `${marginBottom}px`,
-            zIndex: 50 + badgeLevel,
-          }}
-        >
-          <span>{allocation.label}</span>
-          <span className="arrow-down" style={{ borderTopColor: allocation.color }} />
-          {stemHeight > 0 && (
-            <span
-              className="badge-stem-line"
+        <>
+          {/* Dynamic SVG connecting line linking target seat center to custom badge location */}
+          {hasMoved && (
+            <svg
               style={{
-                height: `${stemHeight}px`,
-                backgroundColor: allocation.color,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: 1,
+                height: 1,
+                overflow: 'visible',
+                pointerEvents: 'none',
+                zIndex: 45,
               }}
-            />
+            >
+              <line
+                x1={9.5}
+                y1={9.5}
+                x2={9.5 + dx}
+                y2={-baseMarginBottom + dy + 10}
+                stroke={allocation.color}
+                strokeWidth="2.5"
+                strokeDasharray="3 3"
+              />
+              <circle cx={9.5} cy={9.5} r="3.5" fill={allocation.color} stroke="#ffffff" strokeWidth="1" />
+            </svg>
           )}
-        </div>
+
+          <div
+            className="label-arrow-badge movable"
+            style={{
+              backgroundColor: allocation.color,
+              color: allocation.textColor || '#ffffff',
+              marginBottom: `${baseMarginBottom}px`,
+              transform: `translate(${dx}px, ${dy}px)`,
+              zIndex: 50 + badgeLevel,
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onBadgeDragStart && onBadgeDragStart(allocation.groupId, e);
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              onBadgeDoubleClick && onBadgeDoubleClick(allocation.groupId);
+            }}
+            title="Click & drag to move label | Double-click to reset position"
+          >
+            <span>{allocation.label}</span>
+            <span className="arrow-down" style={{ borderTopColor: allocation.color }} />
+            {!hasMoved && baseMarginBottom > 10 && (
+              <span
+                className="badge-stem-line"
+                style={{
+                  height: `${baseMarginBottom - 10}px`,
+                  backgroundColor: allocation.color,
+                }}
+              />
+            )}
+          </div>
+        </>
       )}
 
       {allocation ? allocation.number : null}
@@ -230,6 +285,52 @@ export default function AuditoriumSeating({ totalRows = 26 }) {
     return Object.values(map);
   }, [allocations]);
 
+  const [badgeOffsets, setBadgeOffsets] = useState(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_OFFSETS_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_OFFSETS_KEY, JSON.stringify(badgeOffsets));
+    } catch (e) {}
+  }, [badgeOffsets]);
+
+  const handleBadgeDragStart = useCallback((groupId, e) => {
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const initialOffset = badgeOffsets[groupId] || { x: 0, y: 0 };
+
+    const handleMouseMove = (moveEvent) => {
+      const dx = initialOffset.x + (moveEvent.clientX - startX);
+      const dy = initialOffset.y + (moveEvent.clientY - startY);
+      setBadgeOffsets((prev) => ({
+        ...prev,
+        [groupId]: { x: dx, y: dy },
+      }));
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  }, [badgeOffsets]);
+
+  const handleBadgeDoubleClick = useCallback((groupId) => {
+    setBadgeOffsets((prev) => {
+      const next = { ...prev };
+      delete next[groupId];
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(allocations));
@@ -333,6 +434,7 @@ export default function AuditoriumSeating({ totalRows = 26 }) {
     const handleDocumentMouseDown = (e) => {
       if (
         e.target.closest('.seat') ||
+        e.target.closest('.label-arrow-badge') ||
         e.target.closest('.allocation-toolbar') ||
         e.target.closest('.preview-modal-overlay') ||
         e.target.closest('.diagram-heading-input') ||
@@ -490,9 +592,11 @@ export default function AuditoriumSeating({ totalRows = 26 }) {
 
   const removeAllAllocations = () => {
     setAllocations({});
+    setBadgeOffsets({});
     setSelectedKeys(new Set());
     try {
       localStorage.removeItem(LOCAL_STORAGE_KEY);
+      localStorage.removeItem(LOCAL_STORAGE_OFFSETS_KEY);
     } catch (e) {}
   };
 
@@ -682,9 +786,12 @@ export default function AuditoriumSeating({ totalRows = 26 }) {
                       isSelected={selectedKeys.has(seat.key)}
                       allocation={allocations[seat.key]}
                       badgeLevel={allocations[seat.key] && allocations[seat.key].isGroupHeader ? (groupBadgeLevels[allocations[seat.key].groupId] || 0) : 0}
+                      badgeOffset={allocations[seat.key] && allocations[seat.key].groupId ? badgeOffsets[allocations[seat.key].groupId] : { x: 0, y: 0 }}
                       onMouseDown={handleSeatMouseDown}
                       onMouseEnter={handleSeatMouseEnter}
                       onHover={setHoveredSeat}
+                      onBadgeDragStart={handleBadgeDragStart}
+                      onBadgeDoubleClick={handleBadgeDoubleClick}
                     />
                   ))}
                 </div>
@@ -698,9 +805,12 @@ export default function AuditoriumSeating({ totalRows = 26 }) {
                       isSelected={selectedKeys.has(seat.key)}
                       allocation={allocations[seat.key]}
                       badgeLevel={allocations[seat.key] && allocations[seat.key].isGroupHeader ? (groupBadgeLevels[allocations[seat.key].groupId] || 0) : 0}
+                      badgeOffset={allocations[seat.key] && allocations[seat.key].groupId ? badgeOffsets[allocations[seat.key].groupId] : { x: 0, y: 0 }}
                       onMouseDown={handleSeatMouseDown}
                       onMouseEnter={handleSeatMouseEnter}
                       onHover={setHoveredSeat}
+                      onBadgeDragStart={handleBadgeDragStart}
+                      onBadgeDoubleClick={handleBadgeDoubleClick}
                     />
                   ))}
                 </div>
@@ -714,9 +824,12 @@ export default function AuditoriumSeating({ totalRows = 26 }) {
                       isSelected={selectedKeys.has(seat.key)}
                       allocation={allocations[seat.key]}
                       badgeLevel={allocations[seat.key] && allocations[seat.key].isGroupHeader ? (groupBadgeLevels[allocations[seat.key].groupId] || 0) : 0}
+                      badgeOffset={allocations[seat.key] && allocations[seat.key].groupId ? badgeOffsets[allocations[seat.key].groupId] : { x: 0, y: 0 }}
                       onMouseDown={handleSeatMouseDown}
                       onMouseEnter={handleSeatMouseEnter}
                       onHover={setHoveredSeat}
+                      onBadgeDragStart={handleBadgeDragStart}
+                      onBadgeDoubleClick={handleBadgeDoubleClick}
                     />
                   ))}
                 </div>
